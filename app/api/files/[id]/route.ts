@@ -40,8 +40,7 @@ export async function GET(
         folder: {
           select: {
             id: true,
-            name: true,
-            path: true,
+            name: true
           },
         },
       },

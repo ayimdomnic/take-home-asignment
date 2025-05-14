@@ -1,3 +1,4 @@
+import { File as FileModel } from "@/app/generated/prisma";
 import { API_ERRORS, ApiError, authOptions, prisma, upload } from "@/lib";
 import { validate } from "@/lib/validations";
 import { getServerSession } from "next-auth";
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
             },
         });
 
-        let files = [];
+        let files: FileModel[] = [];
         if (query.includeFiles) {
             files = await prisma.file.findMany({
                 where: {
