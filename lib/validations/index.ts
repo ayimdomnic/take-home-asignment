@@ -27,7 +27,7 @@ export function validatePartial<T extends SchemaKey>(
   schemaKey: T,
   data: unknown
 ): Partial<InferSchemaType<T>> {
-  const schema = schemas[schemaKey].partial();
+  const schema = schemas[schemaKey];
   const result = schema.safeParse(data);
 
   if (!result.success) {

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postIntall": "cp env.example .env && bunx prisma generate"
+    "postintall": "cp env.example .env && bunx prisma generate"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",

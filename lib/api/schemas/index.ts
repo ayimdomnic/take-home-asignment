@@ -1,7 +1,7 @@
 import { loginSchema, registerSchema } from './auth';
 import { fileSchema, createFileSchema, updateFileSchema, fileUploadSchema } from './file';
 import { folderSchema, createFolderSchema, updateFolderSchema, folderQuerySchema } from './folder';
-import { paginationSchema } from './general';
+import { cuidSchema, emailSchema, paginationSchema } from './general';
 import { accountSchema, CreateUserSchema, sessionSchema, UpdateUserSchema, UserSchema, verificationTokenSchema } from './user';
 
 export * from './file';
@@ -27,4 +27,5 @@ export const schemas = {
     register: registerSchema,
     pagination: paginationSchema,
     folderQuery: folderQuerySchema,
+    cuid: cuidSchema
 };

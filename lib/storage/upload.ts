@@ -8,7 +8,7 @@ export async function upload(options: UploadOptions) {
 
         const pathPrefix = folderId ? `${userId}/${folderId}/` : `${userId}`;
 
-        const fileName = `${Date.now()}-${process.env.NODE_ENV}-${file.name}`;
+        const fileName = `${Date.now()}-${process.env.NODE_ENV}-${file.name.replace(/\s+/g, '-')}`;
         const path = `${pathPrefix}${fileName}`;
 
         const blob = await put(path, file, {
