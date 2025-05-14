@@ -51,7 +51,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.6 0.18 264); /* Google blue */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -76,6 +76,15 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Google Drive specific colors */
+  --google-blue: oklch(0.6 0.18 264);
+  --google-red: oklch(0.65 0.24 25);
+  --google-yellow: oklch(0.85 0.2 85);
+  --google-green: oklch(0.65 0.2 145);
+  --google-light-blue: oklch(0.85 0.1 264);
+  --google-light-gray: oklch(0.95 0.01 264);
+  --google-dark-gray: oklch(0.5 0.01 264);
 }
 
 .dark {
@@ -85,8 +94,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.65 0.18 264); /* Google blue - darker */
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -110,6 +119,15 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Google Drive specific colors - dark mode */
+  --google-blue: oklch(0.65 0.18 264);
+  --google-red: oklch(0.7 0.24 25);
+  --google-yellow: oklch(0.8 0.2 85);
+  --google-green: oklch(0.7 0.2 145);
+  --google-light-blue: oklch(0.7 0.1 264);
+  --google-light-gray: oklch(0.3 0.01 264);
+  --google-dark-gray: oklch(0.2 0.01 264);
 }
 
 @layer base {
@@ -118,5 +136,125 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Google Drive-like animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-in-out;
+}
+
+.scale-in {
+  animation: scaleIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Google Drive-like hover effects */
+.hover-elevation {
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+.hover-elevation:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  transform: translateY(-1px);
+}
+
+/* File grid view styles */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px;
+  }
+}
+
+/* File type colors */
+.file-icon-doc {
+  color: var(--google-blue);
+}
+
+.file-icon-sheet {
+  color: var(--google-green);
+}
+
+.file-icon-slide {
+  color: var(--google-yellow);
+}
+
+.file-icon-pdf {
+  color: var(--google-red);
+}
+
+.file-icon-image {
+  color: oklch(0.65 0.2 300);
+}
+
+.file-icon-video {
+  color: var(--google-red);
+}
+
+.file-icon-audio {
+  color: var(--google-blue);
+}
+
+.file-icon-archive {
+  color: oklch(0.6 0.1 40);
+}
+
+.file-icon-code {
+  color: oklch(0.5 0.05 240);
+}
+
+.file-icon-default {
+  color: oklch(0.5 0.01 264);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none;
+  }
+
+  .mobile-full-width {
+    width: 100% !important;
   }
 }
