@@ -104,13 +104,102 @@ export async function GET(request: Request) {
 
         const { searchParams } = new URL(request.url);
         const folderId = searchParams.get('folderId');
+        const limit = parseInt(searchParams.get('limit') || "20")
         const includeFiles = searchParams.get('includeFiles') === 'true';
+        const type = searchParams.get('type') // recent, starred, trash
+
+        if (type === 'recent') {
+            const recentFiles = await prisma.file.findMany({
+                where: {
+                    userId: session.user.id,
+                    trashed: false,
+                    lastAccessedAt: { not: null }
+                },
+                orderBy: {
+                    lastAccessedAt: "desc",
+                },
+                take: limit,
+                select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    size: true,
+                    url: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    lastAccessedAt: true
+                }
+            })
+
+            return NextResponse.json({ success: true, data: recentFiles }, { status: 200 })
+        }
+
+
+        if (type === 'starred') {
+            const starredFiles = await prisma.file.findMany({
+                where: {
+                    userId: session.user.id,
+                    starred: true,
+                    trashed: false
+                },
+                orderBy: {
+                    updatedAt: 'desc'
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    size: true,
+                    url: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    starred: true
+                }
+            });
+
+            return NextResponse.json({ success: true, data: starredFiles }, { status: 200 });
+        }
+
+        if (type === 'shared') {
+            const sharedFiles = await prisma.fileShare.findMany({
+              where: {
+                userId: session.user.id
+              },
+              include: {
+                file: {
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    size: true,
+                    url: true,
+                    createdAt: true,
+                    updatedAt: true
+                  }
+                },
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true
+                  }
+                }
+              },
+              orderBy: {
+                updatedAt: 'desc'
+              }
+            });
+      
+            return NextResponse.json({ success: true, data: sharedFiles }, { status: 200 });
+        }
 
         // Validate query parameters
         const query = validate('folderQuery', {
             parentId: folderId,
             includeFiles
         });
+
+
 
         const folders = await prisma.folder.findMany({
             where: {
@@ -126,7 +215,7 @@ export async function GET(request: Request) {
         if (query.includeFiles) {
             files = await prisma.file.findMany({
                 where: {
-                    userId: session.user.id,
+                    userId: session?.user.id,
                     folderId: query.parentId || null,
                 },
                 orderBy: {
@@ -152,6 +241,40 @@ export async function GET(request: Request) {
         }
 
         console.error('File list error:', error);
+        return NextResponse.json(
+            {
+                success: false,
+                error: 'Internal server error'
+            },
+            { status: 500 }
+        );
+    }
+}
+
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+
+        if (session?.user?.id) {
+            throw new ApiError(API_ERRORS.UNAUTHORIZED.message, API_ERRORS.UNAUTHORIZED.statusCode, API_ERRORS.UNAUTHORIZED.code);
+        }
+
+        const { fileId, starred } = await request.json();
+        const updatedFile = await prisma.file.update({
+            where: {
+                id: fileId,
+                userId: session?.user.id
+
+            },
+            data: {
+                starred
+            }
+        })
+
+        return NextResponse.json({ success: true, data: updatedFile }, { status: 200 });
+    } catch (error) {
+        console.error('File starring error:', error);
         return NextResponse.json(
             {
                 success: false,

@@ -33,6 +33,7 @@ model User {
 
   emailVerified DateTime?
   image         String?
+  fileShares     FileShare[]
 }
 
 model Account {
@@ -90,19 +91,37 @@ model Folder {
 }
 
 model File {
-  id          String   @id @default(cuid())
-  name        String
-  type        String
-  size        Int
-  url         String
-  storagePath String
-  blobId      String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folderId    String?
-  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  id             String      @id @default(cuid())
+  name           String
+  type           String
+  size           Int
+  url            String
+  storagePath    String
+  blobId         String      @unique
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId       String?
+  folder         Folder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  starred        Boolean     @default(false)
+  trashed        Boolean     @default(false)
+  trashedAt      DateTime?
+  lastAccessedAt DateTime?   
+  fileShares      FileShare[]
 
   @@map("files")
+}
+
+model FileShare {
+  id         String @id @default(cuid())
+  fileId     String
+  file       File   @relation(fields: [fileId], references: [id])
+  userId     String
+  user       User   @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  permission String @default("VIEW")
+
+  @@unique([fileId, userId])
 }

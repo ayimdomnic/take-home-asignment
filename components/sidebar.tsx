@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { signOut, useSession } from "next-auth/react"
 import { HardDrive, Clock, Star, Users, Trash2, LogOut, Settings, User, X, Plus, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ interface SidebarProps {
 export function Sidebar({ currentFolderId, isOpen, onToggle }: SidebarProps) {
   const { data: session } = useSession()
   const router = useRouter()
+  const pathname = usePathname()
   const isMobile = useIsMobile()
   const [storageUsed, setStorageUsed] = useState(0)
   const [storageTotal, setStorageTotal] = useState(15)
@@ -50,31 +51,31 @@ export function Sidebar({ currentFolderId, isOpen, onToggle }: SidebarProps) {
       name: "My Drive",
       icon: HardDrive,
       href: "/",
-      active: !currentFolderId,
+      active: pathname === "/" && !currentFolderId,
     },
     {
       name: "Shared with me",
       icon: Users,
       href: "/shared",
-      active: false,
+      active: pathname === "/shared",
     },
     {
       name: "Recent",
       icon: Clock,
       href: "/recent",
-      active: false,
+      active: pathname === "/recent",
     },
     {
       name: "Starred",
       icon: Star,
       href: "/starred",
-      active: false,
+      active: pathname === "/starred",
     },
     {
       name: "Trash",
       icon: Trash2,
       href: "/trash",
-      active: false,
+      active: pathname === "/trash",
     },
   ]
 

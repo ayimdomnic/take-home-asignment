@@ -15,6 +15,10 @@ import {
   FileArchive,
   FileCode,
   FileIcon as FilePdf,
+  Star,
+  Share,
+  RotateCcw,
+  StarOff,
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { Button } from "@/components/ui/button"
@@ -23,12 +27,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useIsMobile as useMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { toast } from "sonner"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { type RenameFormValues, type MoveFormValues, RenameSchema, MoveSchema } from "@/lib"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
+import { FilePreview } from "@/components/file-preview"
+import { ShareFileDialog } from "@/components/share-file-dialog"
 
 interface FileExplorerProps {
   files: any[]
@@ -37,16 +43,28 @@ interface FileExplorerProps {
   onRefresh: () => void
   currentFolderId: string | null
   viewMode: "grid" | "list"
+  viewType?: "default" | "recent" | "starred" | "trash" | "shared"
 }
 
-export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFolderId, viewMode }: FileExplorerProps) {
-  const isMobile = useMobile()
+export function FileExplorer({
+  files,
+  folders,
+  onNavigate,
+  onRefresh,
+  currentFolderId,
+  viewMode,
+  viewType = "default",
+}: FileExplorerProps) {
+  const isMobile = useIsMobile()
   const [isRenaming, setIsRenaming] = useState(false)
   const [isMoving, setIsMoving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSharing, setIsSharing] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [itemType, setItemType] = useState<"file" | "folder">("file")
   const [availableFolders, setAvailableFolders] = useState<any[]>([])
+  const [previewFile, setPreviewFile] = useState<any>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
   const renameForm = useForm<RenameFormValues>({
     resolver: zodResolver(RenameSchema),
@@ -132,28 +150,91 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
     }
   }
 
-  // Handle delete
+  // Handle delete or trash
   async function handleDelete() {
     try {
-      const endpoint = itemType === "file" ? `/api/files/${selectedItem.id}` : `/api/folders/${selectedItem.id}`
+      if (viewType === "trash") {
+        // Permanently delete
+        const endpoint = itemType === "file" ? `/api/files/${selectedItem.id}` : `/api/folders/${selectedItem.id}`
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+        })
 
-      const response = await fetch(endpoint, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        toast.success(`${itemType === "file" ? "File" : "Folder"} deleted successfully`)
-        onRefresh()
+        if (response.ok) {
+          toast.success(`${itemType === "file" ? "File" : "Folder"} permanently deleted`)
+          onRefresh()
+        } else {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to delete")
+        }
       } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to delete")
+        // Move to trash
+        const endpoint =
+          itemType === "file" ? `/api/files/${selectedItem.id}/trash` : `/api/folders/${selectedItem.id}/trash`
+        const response = await fetch(endpoint, {
+          method: "POST",
+        })
+
+        if (response.ok) {
+          toast.success(`${itemType === "file" ? "File" : "Folder"} moved to trash`)
+          onRefresh()
+        } else {
+          const error = await response.json()
+          throw new Error(error.error || "Failed to trash")
+        }
       }
     } catch (error: any) {
-      toast.error("Failed to delete", {
+      toast.error(`Failed to ${viewType === "trash" ? "delete" : "trash"}`, {
         description: error.message || "Something went wrong",
       })
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // Handle restore from trash
+  async function handleRestore(file: any) {
+    try {
+      const response = await fetch(`/api/files/${file.id}/restore`, {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        toast.success("File restored from trash")
+        onRefresh()
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to restore")
+      }
+    } catch (error: any) {
+      toast.error("Failed to restore", {
+        description: error.message || "Something went wrong",
+      })
+    }
+  }
+
+  // Handle star/unstar
+  async function handleToggleStar(file: any) {
+    try {
+      const response = await fetch(`/api/files/${file.id}/star`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ starred: !file.starred }),
+      })
+
+      if (response.ok) {
+        toast.success(file.starred ? "File removed from starred" : "File added to starred")
+        onRefresh()
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to update star status")
+      }
+    } catch (error: any) {
+      toast.error("Failed to update star status", {
+        description: error.message || "Something went wrong",
+      })
     }
   }
 
@@ -238,20 +319,31 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
     setIsDeleting(true)
   }
 
+  // Open share dialog
+  function openShareDialog(file: any) {
+    setSelectedItem(file)
+    setIsSharing(true)
+  }
+
   // Handle file click
   function handleFileClick(file: any) {
-    // Open file in new tab
-    if (file.url) {
-      window.open(file.url, "_blank")
+    // Update last accessed time
+    if (viewType !== "trash") {
+      fetch(`/api/files/${file.id}/access`, {
+        method: "POST",
+      }).catch((error) => console.error("Error updating last accessed time:", error))
     }
+
+    setPreviewFile(file)
+    setIsPreviewOpen(true)
   }
 
   // Render grid view
   function renderGridView() {
     return (
       <div className="space-y-8">
-        {/* Folders section */}
-        {folders.length > 0 && (
+        {/* Folders section - not shown in some views */}
+        {folders.length > 0 && viewType !== "recent" && viewType !== "starred" && viewType !== "shared" && (
           <div className="mb-8">
             <h2 className="text-base font-medium mb-4 text-foreground/80">Folders</h2>
             <div className="file-grid">
@@ -277,21 +369,41 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="dropdown-menu-content">
-                        <DropdownMenuItem onClick={() => openRenameDialog(folder, "folder")}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openMoveDialog(folder, "folder")}>
-                          <FolderUp className="mr-2 h-4 w-4" />
-                          Move
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(folder, "folder")}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
+                        {viewType !== "trash" && (
+                          <>
+                            <DropdownMenuItem onClick={() => openRenameDialog(folder, "folder")}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openMoveDialog(folder, "folder")}>
+                              <FolderUp className="mr-2 h-4 w-4" />
+                              Move
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {viewType === "trash" ? (
+                          <>
+                            <DropdownMenuItem onClick={() => handleRestore(folder)}>
+                              <RotateCcw className="mr-2 h-4 w-4" />
+                              Restore
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openDeleteDialog(folder, "folder")}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete permanently
+                            </DropdownMenuItem>
+                          </>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => openDeleteDialog(folder, "folder")}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Move to trash
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -314,52 +426,121 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
         {/* Files section */}
         {files.length > 0 && (
           <div>
-            <h2 className="text-base font-medium mb-4 text-foreground/80">Files</h2>
+            <h2 className="text-base font-medium mb-4 text-foreground/80">
+              {viewType === "recent"
+                ? "Recent Files"
+                : viewType === "starred"
+                  ? "Starred Files"
+                  : viewType === "trash"
+                    ? "Trashed Files"
+                    : viewType === "shared"
+                      ? "Shared with me"
+                      : "Files"}
+            </h2>
             <div className="file-grid">
-              {files.map((file) => (
-                <div
-                  key={file.id}
-                  className="group relative flex flex-col items-center p-4 rounded-lg border bg-card transition-all hover-elevation scale-in"
-                >
-                  <button
-                    onClick={() => handleFileClick(file)}
-                    className="flex flex-col items-center w-full"
-                    aria-label={`Open file: ${file.name}`}
+              {files.map((file) => {
+                // For shared view, extract the file from the fileShare object
+                const fileData = viewType === "shared" && file.file ? file.file : file
+
+                return (
+                  <div
+                    key={fileData.id}
+                    className="group relative flex flex-col items-center p-4 rounded-lg border bg-card transition-all hover-elevation scale-in"
                   >
-                    <div className="h-16 w-16 flex items-center justify-center mb-2">{getFileTypeIcon(file.type)}</div>
-                    <span className="text-sm font-medium text-center truncate w-full">{file.name}</span>
-                  </button>
+                    {fileData.starred && viewType !== "starred" && (
+                      <div className="absolute top-2 left-2 text-yellow-500">
+                        <Star className="h-4 w-4 fill-current" />
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleFileClick(fileData)}
+                      className="flex flex-col items-center w-full"
+                      aria-label={`Open file: ${fileData.name}`}
+                    >
+                      <div className="h-16 w-16 flex items-center justify-center mb-2">
+                        {getFileTypeIcon(fileData.type)}
+                      </div>
+                      <span className="text-sm font-medium text-center truncate w-full">{fileData.name}</span>
+                    </button>
 
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="dropdown-menu-content">
-                        <DropdownMenuItem onClick={() => openRenameDialog(file, "file")}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openMoveDialog(file, "file")}>
-                          <FolderUp className="mr-2 h-4 w-4" />
-                          Move
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(file, "file")}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="dropdown-menu-content">
+                          {viewType !== "trash" && (
+                            <>
+                              <DropdownMenuItem onClick={() => openRenameDialog(fileData, "file")}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openMoveDialog(fileData, "file")}>
+                                <FolderUp className="mr-2 h-4 w-4" />
+                                Move
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openShareDialog(fileData)}>
+                                <Share className="mr-2 h-4 w-4" />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleStar(fileData)}>
+                                {fileData.starred ? (
+                                  <>
+                                    <StarOff className="mr-2 h-4 w-4" />
+                                    Remove from starred
+                                  </>
+                                ) : (
+                                  <>
+                                    <Star className="mr-2 h-4 w-4" />
+                                    Add to starred
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {viewType === "trash" ? (
+                            <>
+                              <DropdownMenuItem onClick={() => handleRestore(fileData)}>
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                Restore
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openDeleteDialog(fileData, "file")}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete permanently
+                              </DropdownMenuItem>
+                            </>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => openDeleteDialog(fileData, "file")}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Move to trash
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      {formatFileSize(fileData.size)}
+                      {viewType === "shared" && file.user && (
+                        <div className="mt-1">Shared by: {file.user.name || file.user.email}</div>
+                      )}
+                      {viewType === "trash" && fileData.trashedAt && (
+                        <div className="mt-1">
+                          Trashed: {formatDistanceToNow(new Date(fileData.trashedAt), { addSuffix: true })}
+                        </div>
+                      )}
+                    </div>
                   </div>
-
-                  <div className="mt-2 text-xs text-muted-foreground">{formatFileSize(file.size)}</div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
@@ -371,8 +552,8 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
   function renderListView() {
     return (
       <div className="space-y-8">
-        {/* Folders section */}
-        {folders.length > 0 && (
+        {/* Folders section - not shown in some views */}
+        {folders.length > 0 && viewType !== "recent" && viewType !== "starred" && viewType !== "shared" && (
           <div className="mb-8">
             <h2 className="text-base font-medium mb-4 text-foreground/80">Folders</h2>
             <div className="overflow-hidden rounded-lg border bg-card">
@@ -420,21 +601,41 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openRenameDialog(folder, "folder")}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMoveDialog(folder, "folder")}>
-                              <FolderUp className="mr-2 h-4 w-4" />
-                              Move
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openDeleteDialog(folder, "folder")}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
+                            {viewType !== "trash" && (
+                              <>
+                                <DropdownMenuItem onClick={() => openRenameDialog(folder, "folder")}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Rename
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openMoveDialog(folder, "folder")}>
+                                  <FolderUp className="mr-2 h-4 w-4" />
+                                  Move
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            {viewType === "trash" ? (
+                              <>
+                                <DropdownMenuItem onClick={() => handleRestore(folder)}>
+                                  <RotateCcw className="mr-2 h-4 w-4" />
+                                  Restore
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(folder, "folder")}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete permanently
+                                </DropdownMenuItem>
+                              </>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => openDeleteDialog(folder, "folder")}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Move to trash
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -449,7 +650,17 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
         {/* Files section */}
         {files.length > 0 && (
           <div>
-            <h2 className="text-base font-medium mb-4 text-foreground/80">Files</h2>
+            <h2 className="text-base font-medium mb-4 text-foreground/80">
+              {viewType === "recent"
+                ? "Recent Files"
+                : viewType === "starred"
+                  ? "Starred Files"
+                  : viewType === "trash"
+                    ? "Trashed Files"
+                    : viewType === "shared"
+                      ? "Shared with me"
+                      : "Files"}
+            </h2>
             <div className="overflow-hidden rounded-lg border bg-card">
               <table className="w-full">
                 <thead>
@@ -461,60 +672,123 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                     <th className="py-3 px-4 text-left text-sm font-medium text-foreground/70 hidden sm:table-cell">
                       Size
                     </th>
-                    <th className="py-3 px-4 text-left text-sm font-medium text-foreground/70">Modified</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-foreground/70">
+                      {viewType === "trash" ? "Trashed" : "Modified"}
+                    </th>
+                    {viewType === "shared" && (
+                      <th className="py-3 px-4 text-left text-sm font-medium text-foreground/70 hidden md:table-cell">
+                        Shared by
+                      </th>
+                    )}
                     <th className="py-3 px-4 text-right text-sm font-medium text-foreground/70">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {files.map((file) => (
-                    <tr key={file.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={() => handleFileClick(file)}
-                          className="flex items-center"
-                          aria-label={`Open file: ${file.name}`}
-                        >
-                          <div className="h-5 w-5 mr-3">{getFileTypeIcon(file.type)}</div>
-                          <span className="text-sm font-medium truncate max-w-[200px]">{file.name}</span>
-                        </button>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
-                        {file.type.split("/")[1]?.toUpperCase() || file.type}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground hidden sm:table-cell">
-                        {formatFileSize(file.size)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(file.createdAt), { addSuffix: true })}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openRenameDialog(file, "file")}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openMoveDialog(file, "file")}>
-                              <FolderUp className="mr-2 h-4 w-4" />
-                              Move
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => openDeleteDialog(file, "file")}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
+                  {files.map((file) => {
+                    // For shared view, extract the file from the fileShare object
+                    const fileData = viewType === "shared" && file.file ? file.file : file
+
+                    return (
+                      <tr key={fileData.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => handleFileClick(fileData)}
+                            className="flex items-center"
+                            aria-label={`Open file: ${fileData.name}`}
+                          >
+                            <div className="h-5 w-5 mr-3 flex items-center">
+                              {getFileTypeIcon(fileData.type)}
+                              {fileData.starred && viewType !== "starred" && (
+                                <Star className="h-3 w-3 fill-yellow-500 text-yellow-500 absolute -mt-3 ml-3" />
+                              )}
+                            </div>
+                            <span className="text-sm font-medium truncate max-w-[200px]">{fileData.name}</span>
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
+                          {fileData.type.split("/")[1]?.toUpperCase() || fileData.type}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground hidden sm:table-cell">
+                          {formatFileSize(fileData.size)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-muted-foreground">
+                          {viewType === "trash" && fileData.trashedAt
+                            ? formatDistanceToNow(new Date(fileData.trashedAt), { addSuffix: true })
+                            : formatDistanceToNow(new Date(fileData.updatedAt || fileData.createdAt), {
+                                addSuffix: true,
+                              })}
+                        </td>
+                        {viewType === "shared" && (
+                          <td className="py-3 px-4 text-sm text-muted-foreground hidden md:table-cell">
+                            {file.user ? file.user.name || file.user.email : "Unknown"}
+                          </td>
+                        )}
+                        <td className="py-3 px-4 text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {viewType !== "trash" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => openRenameDialog(fileData, "file")}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Rename
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openMoveDialog(fileData, "file")}>
+                                    <FolderUp className="mr-2 h-4 w-4" />
+                                    Move
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openShareDialog(fileData)}>
+                                    <Share className="mr-2 h-4 w-4" />
+                                    Share
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleToggleStar(fileData)}>
+                                    {fileData.starred ? (
+                                      <>
+                                        <StarOff className="mr-2 h-4 w-4" />
+                                        Remove from starred
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Star className="mr-2 h-4 w-4" />
+                                        Add to starred
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {viewType === "trash" ? (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleRestore(fileData)}>
+                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                    Restore
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => openDeleteDialog(fileData, "file")}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete permanently
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(fileData, "file")}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Move to trash
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -529,12 +803,43 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
       {folders.length === 0 && files.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center bg-card rounded-lg border p-8 fade-in">
           <FolderIcon className="h-16 w-16 text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-medium">No files or folders</h3>
-          <p className="text-sm text-muted-foreground mt-1">Upload files or create folders to get started</p>
+          <h3 className="text-lg font-medium">
+            {viewType === "recent"
+              ? "No recent files"
+              : viewType === "starred"
+                ? "No starred files"
+                : viewType === "trash"
+                  ? "Trash is empty"
+                  : viewType === "shared"
+                    ? "No files shared with you"
+                    : "No files or folders"}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            {viewType === "recent"
+              ? "Files you open will appear here"
+              : viewType === "starred"
+                ? "Star files to find them quickly"
+                : viewType === "trash"
+                  ? "Items in trash will be automatically deleted after 30 days"
+                  : viewType === "shared"
+                    ? "Files shared with you will appear here"
+                    : "Upload files or create folders to get started"}
+          </p>
         </div>
       ) : (
         <div className="fade-in">{viewMode === "grid" ? renderGridView() : renderListView()}</div>
       )}
+
+      {/* File Preview */}
+      <FilePreview file={previewFile} isOpen={isPreviewOpen} onClose={() => setIsPreviewOpen(false)} />
+
+      {/* Share Dialog */}
+      <ShareFileDialog
+        file={selectedItem}
+        isOpen={isSharing}
+        onClose={() => setIsSharing(false)}
+        onSuccess={onRefresh}
+      />
 
       {/* Rename Dialog */}
       <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
@@ -636,13 +941,28 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
       <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
         <DialogContent className="sm:max-w-md dialog-content">
           <DialogHeader>
-            <DialogTitle>Delete {itemType === "file" ? "File" : "Folder"}</DialogTitle>
+            <DialogTitle>
+              {viewType === "trash"
+                ? `Permanently delete ${itemType === "file" ? "file" : "folder"}`
+                : `Move ${itemType === "file" ? "file" : "folder"} to trash`}
+            </DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <p className="text-sm text-muted-foreground">
-              Are you sure you want to delete <span className="font-medium text-foreground">{selectedItem?.name}</span>?
-              {itemType === "folder" && (
-                <span className="block mt-2 text-amber-600">Note: You can only delete empty folders.</span>
+              {viewType === "trash" ? (
+                <>
+                  Are you sure you want to permanently delete{" "}
+                  <span className="font-medium text-foreground">{selectedItem?.name}</span>? This action cannot be
+                  undone.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to move{" "}
+                  <span className="font-medium text-foreground">{selectedItem?.name}</span> to trash?
+                </>
+              )}
+              {itemType === "folder" && viewType !== "trash" && (
+                <span className="block mt-2 text-amber-600">Note: You can only trash empty folders.</span>
               )}
             </p>
           </div>
@@ -651,7 +971,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              Delete
+              {viewType === "trash" ? "Delete permanently" : "Move to trash"}
             </Button>
           </DialogFooter>
         </DialogContent>
