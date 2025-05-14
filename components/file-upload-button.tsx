@@ -2,12 +2,14 @@
 
 import type React from "react"
 
+import { cn } from "@/lib/utils"
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { Upload } from "lucide-react"
-import { toast } from "sonner"
+import { Upload, Loader2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useIsMobile as useMobile } from "@/hooks/use-mobile"
+import { toast } from "sonner"
 
 interface FileUploadButtonProps {
   folderId: string | null
@@ -19,6 +21,10 @@ export function FileUploadButton({ folderId, onSuccess }: FileUploadButtonProps)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [showProgress, setShowProgress] = useState(false)
+  const [currentFile, setCurrentFile] = useState<string>("")
+  const [totalFiles, setTotalFiles] = useState<number>(0)
+  const [currentFileIndex, setCurrentFileIndex] = useState<number>(0)
+  const isMobile = useMobile()
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files
@@ -27,11 +33,17 @@ export function FileUploadButton({ folderId, onSuccess }: FileUploadButtonProps)
     setIsUploading(true)
     setShowProgress(true)
     setUploadProgress(0)
+    setTotalFiles(files.length)
+    setCurrentFileIndex(0)
 
     try {
       // Upload each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
+        setCurrentFile(file.name)
+        setCurrentFileIndex(i + 1)
+        setUploadProgress(0)
+
         const formData = new FormData()
         formData.append("file", file)
 
@@ -69,11 +81,12 @@ export function FileUploadButton({ folderId, onSuccess }: FileUploadButtonProps)
 
         // Set progress to 100% for this file
         setUploadProgress(100)
+
+        // Small delay to show 100% progress
+        await new Promise((resolve) => setTimeout(resolve, 500))
       }
 
-      toast.success("Success", {
-        description: files.length > 1 ? `${files.length} files uploaded successfully` : "File uploaded successfully",
-      })
+      toast.success(files.length > 1 ? `${files.length} files uploaded successfully` : "File uploaded successfully")
 
       onSuccess()
 
@@ -82,7 +95,7 @@ export function FileUploadButton({ folderId, onSuccess }: FileUploadButtonProps)
         fileInputRef.current.value = ""
       }
     } catch (error: any) {
-      toast.error( "Error", {
+      toast.error("Upload failed", {
         description: error.message || "Failed to upload file",
       })
     } finally {
@@ -104,17 +117,29 @@ export function FileUploadButton({ folderId, onSuccess }: FileUploadButtonProps)
   return (
     <>
       <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" multiple />
-      <Button onClick={handleClick} disabled={isUploading} size="sm">
-        <Upload className="mr-2 h-4 w-4" />
-        Upload
+      <Button
+        onClick={handleClick}
+        disabled={isUploading}
+        size="sm"
+        className={cn("bg-primary hover:bg-primary/90", isMobile ? "px-3" : "")}
+      >
+        {isUploading ? (
+          <Loader2 className={cn("h-4 w-4 animate-spin", !isMobile && "mr-2")} />
+        ) : (
+          <Upload className={cn("h-4 w-4", !isMobile && "mr-2")} />
+        )}
+        {!isMobile && (isUploading ? "Uploading..." : "Upload")}
       </Button>
 
       <Dialog open={showProgress} onOpenChange={setShowProgress}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dialog-content">
           <DialogHeader>
-            <DialogTitle>Uploading File</DialogTitle>
+            <DialogTitle>
+              {totalFiles > 1 ? `Uploading files (${currentFileIndex}/${totalFiles})` : "Uploading file"}
+            </DialogTitle>
           </DialogHeader>
           <div className="py-6">
+            <p className="text-sm text-muted-foreground mb-2 truncate">{currentFile}</p>
             <Progress value={uploadProgress} className="h-2" />
             <p className="mt-2 text-sm text-center text-muted-foreground">
               {uploadProgress < 100 ? "Uploading..." : "Upload complete!"}

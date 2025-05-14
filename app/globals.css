@@ -140,18 +140,6 @@
 }
 
 /* Google Drive-like animations */
-.fade-in {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-.slide-in {
-  animation: slideIn 0.3s ease-in-out;
-}
-
-.scale-in {
-  animation: scaleIn 0.2s ease-in-out;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -183,17 +171,18 @@
   }
 }
 
-/* Google Drive-like hover effects */
+/* Enhanced hover effects */
 .hover-elevation {
-  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
+  transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
 
 .hover-elevation:hover {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+  border-color: var(--google-blue);
 }
 
-/* File grid view styles */
+/* Improved file grid */
 .file-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -207,7 +196,18 @@
   }
 }
 
-/* File type colors */
+/* Google Drive-like file/folder cards */
+.file-grid > div {
+  transition: all 0.2s ease-in-out;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.file-grid > div:hover {
+  background-color: var(--accent);
+}
+
+/* File type colors with improved colors */
 .file-icon-doc {
   color: var(--google-blue);
 }
@@ -246,6 +246,56 @@
 
 .file-icon-default {
   color: oklch(0.5 0.01 264);
+}
+
+/* Enhanced table styles */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+table tr:hover {
+  background-color: var(--accent);
+}
+
+/* Improved scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--muted-foreground);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--foreground);
+}
+
+/* Improved focus styles */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Improved button styles */
+button {
+  transition: all 0.2s ease;
+}
+
+/* Improved dropdown menu animations */
+.dropdown-menu-content {
+  animation: scaleIn 0.2s ease;
+}
+
+/* Improved dialog animations */
+.dialog-content {
+  animation: slideIn 0.3s ease;
 }
 
 /* Mobile optimizations */

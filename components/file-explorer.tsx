@@ -276,7 +276,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="dropdown-menu-content">
                         <DropdownMenuItem onClick={() => openRenameDialog(folder, "folder")}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Rename
@@ -337,7 +337,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="dropdown-menu-content">
                         <DropdownMenuItem onClick={() => openRenameDialog(file, "file")}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Rename
@@ -538,7 +538,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
 
       {/* Rename Dialog */}
       <Dialog open={isRenaming} onOpenChange={setIsRenaming}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dialog-content">
           <DialogHeader>
             <DialogTitle>Rename {itemType === "file" ? "File" : "Folder"}</DialogTitle>
           </DialogHeader>
@@ -552,7 +552,19 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
                     <FormItem>
                       <Label htmlFor="name">Name</Label>
                       <FormControl>
-                        <Input {...field} id="name" placeholder="Enter new name" className="h-10" />
+                        <Input
+                          {...field}
+                          id="name"
+                          placeholder="Enter new name"
+                          className="h-10"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              renameForm.handleSubmit(handleRename)()
+                            }
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -574,7 +586,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
 
       {/* Move Dialog */}
       <Dialog open={isMoving} onOpenChange={setIsMoving}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dialog-content">
           <DialogHeader>
             <DialogTitle>Move {itemType === "file" ? "File" : "Folder"}</DialogTitle>
           </DialogHeader>
@@ -622,7 +634,7 @@ export function FileExplorer({ files, folders, onNavigate, onRefresh, currentFol
 
       {/* Delete Dialog */}
       <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dialog-content">
           <DialogHeader>
             <DialogTitle>Delete {itemType === "file" ? "File" : "Folder"}</DialogTitle>
           </DialogHeader>

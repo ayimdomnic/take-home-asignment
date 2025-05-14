@@ -9,17 +9,17 @@ import { FileUploadButton } from "@/components/file-upload-button"
 import { CreateFolderButton } from "@/components/create-folder-button"
 import { Breadcrumbs } from "@/components/ui/breadcrumbs"
 import { Button } from "@/components/ui/button"
-import { Loader2, Search, Grid3X3, List, SlidersHorizontal } from "lucide-react"
+import { Loader2, Search, Grid3X3, List, SlidersHorizontal } from 'lucide-react'
 import { Input } from "@/components/ui/input"
 import { SkeletonLoader } from "@/components/skeleton-loader"
-import { useIsMobile as useMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { toast } from "sonner"
 
 export default function Dashboard() {
   const { data: session } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const isMobile = useMobile()
+  const isMobile = useIsMobile()
 
   const [isLoading, setIsLoading] = useState(true)
   const [currentFolder, setCurrentFolder] = useState<any>(null)
@@ -29,11 +29,14 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [searchQuery, setSearchQuery] = useState("")
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile)
+  const [error, setError] = useState<string | null>(null)
 
   const folderId = searchParams.get("folder")
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
+    setError(null)
+
     try {
       // Fetch current folder data if we're in a folder
       if (folderId) {
@@ -43,6 +46,8 @@ export default function Dashboard() {
           setCurrentFolder(folderData.data)
           await fetchFolderPath(folderData.data)
         } else {
+          const errorData = await folderRes.json()
+          console.error("Failed to load folder information:", errorData)
           toast.error("Failed to load folder information")
         }
       } else {
@@ -56,13 +61,17 @@ export default function Dashboard() {
 
       if (res.ok) {
         const data = await res.json()
+        console.log("Fetched data:", data)
         setFiles(data.data.files || [])
         setFolders(data.data.folders || [])
       } else {
+        const errorData = await res.json()
+        console.error("Failed to load files and folders:", errorData)
         toast.error("Failed to load files and folders")
       }
     } catch (error) {
       console.error("Error fetching data:", error)
+      setError("Failed to load your files and folders. Please try again later.")
       toast.error("Something went wrong while loading your files")
     } finally {
       setIsLoading(false)
@@ -81,26 +90,32 @@ export default function Dashboard() {
   }, [isMobile])
 
   async function fetchFolderPath(folder: any) {
+    if (!folder) return
+
     const path = []
     let current = folder
 
-    while (current) {
-      path.unshift(current)
+    try {
+      while (current) {
+        path.unshift(current)
 
-      if (current.parentId) {
-        const res = await fetch(`/api/folders/${current.parentId}`)
-        if (res.ok) {
-          const data = await res.json()
-          current = data.data
+        if (current.parentId) {
+          const res = await fetch(`/api/folders/${current.parentId}`)
+          if (res.ok) {
+            const data = await res.json()
+            current = data.data
+          } else {
+            break
+          }
         } else {
           break
         }
-      } else {
-        break
       }
-    }
 
-    setFolderPath(path)
+      setFolderPath(path)
+    } catch (error) {
+      console.error("Error fetching folder path:", error)
+    }
   }
 
   function navigateToFolder(id: string | null) {
@@ -124,8 +139,18 @@ export default function Dashboard() {
 
   const filteredFiles = files.filter((file) => file.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
+  // For debugging
+  console.log("Current state:", {
+    isLoading,
+    files: files.length,
+    folders: folders.length,
+    filteredFiles: filteredFiles.length,
+    filteredFolders: filteredFolders.length,
+    error,
+  })
+
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar currentFolderId={folderId} isOpen={isSidebarOpen} onToggle={toggleSidebar} />
 
       <div className="flex flex-col flex-1 overflow-hidden">
@@ -187,6 +212,7 @@ export default function Dashboard() {
                 size="icon"
                 onClick={() => setViewMode("grid")}
                 className={viewMode === "grid" ? "bg-accent text-accent-foreground" : ""}
+                aria-label="Grid view"
               >
                 <Grid3X3 className="h-5 w-5" />
               </Button>
@@ -195,10 +221,11 @@ export default function Dashboard() {
                 size="icon"
                 onClick={() => setViewMode("list")}
                 className={viewMode === "list" ? "bg-accent text-accent-foreground" : ""}
+                aria-label="List view"
               >
                 <List className="h-5 w-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="hidden sm:flex">
+              <Button variant="ghost" size="icon" className="hidden sm:flex" aria-label="Settings">
                 <SlidersHorizontal className="h-5 w-5" />
               </Button>
             </div>
@@ -235,6 +262,31 @@ export default function Dashboard() {
         <main className="flex-1 overflow-auto p-6">
           {isLoading ? (
             <SkeletonLoader viewMode={viewMode} />
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-64 text-center bg-card rounded-lg border p-8 fade-in">
+              <div className="text-destructive mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium">Error Loading Content</h3>
+              <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              <Button onClick={handleRefresh} className="mt-4">
+                Try Again
+              </Button>
+            </div>
           ) : (
             <FileExplorer
               files={filteredFiles}
