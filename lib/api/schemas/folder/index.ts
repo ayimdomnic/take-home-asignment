@@ -28,3 +28,6 @@ export const folderQuerySchema = z.object({
     parentId: cuidSchema.nullable().optional(),
     includeFiles: z.boolean().default(false),
 });
+
+
+export type FolderFormValues = z.infer<typeof  folderSchema>

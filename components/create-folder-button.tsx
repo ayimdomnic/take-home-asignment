@@ -2,11 +2,17 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { FolderPlus } from "lucide-react"
-import { toast } from "sonner"
+import { FolderPlus, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
+import { useIsMobile as useMobile } from "@/hooks/use-mobile"
+import { toast } from "sonner"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { type FolderFormValues, folderSchema } from "@/lib"
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 
 interface CreateFolderButtonProps {
     parentId: string | null
@@ -14,20 +20,19 @@ interface CreateFolderButtonProps {
 }
 
 export function CreateFolderButton({ parentId, onSuccess }: CreateFolderButtonProps) {
-
     const [isOpen, setIsOpen] = useState(false)
-    const [folderName, setFolderName] = useState("")
     const [isCreating, setIsCreating] = useState(false)
+    const isMobile = useMobile()
 
-    async function handleCreateFolder() {
-        if (!folderName.trim()) {
-            toast.error(
-                "Error", {
-                description: "Folder name cannot be empty"
-            })
-            return
-        }
+    const form = useForm<FolderFormValues>({
+        resolver: zodResolver(folderSchema),
+        defaultValues: {
+            name: "",
+            parentId: parentId,
+        },
+    })
 
+    async function onSubmit(values: FolderFormValues) {
         setIsCreating(true)
 
         try {
@@ -37,7 +42,7 @@ export function CreateFolderButton({ parentId, onSuccess }: CreateFolderButtonPr
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    name: folderName,
+                    name: values.name,
                     parentId: parentId,
                 }),
             })
@@ -47,17 +52,13 @@ export function CreateFolderButton({ parentId, onSuccess }: CreateFolderButtonPr
                 throw new Error(error.error || "Failed to create folder")
             }
 
-            toast.success(
-                "Success", {
-                description: "Folder created successfully",
-            })
-
-            setFolderName("")
+            toast.success("Folder created successfully")
+            form.reset()
             setIsOpen(false)
             onSuccess()
         } catch (error: any) {
-            toast( "Error", {
-                description: error.message || "Failed to create folder"
+            toast.error("Failed to create folder", {
+                description: error.message || "Something went wrong",
             })
         } finally {
             setIsCreating(false)
@@ -66,9 +67,9 @@ export function CreateFolderButton({ parentId, onSuccess }: CreateFolderButtonPr
 
     return (
         <>
-            <Button variant="outline" size="sm" onClick={() => setIsOpen(true)}>
-                <FolderPlus className="mr-2 h-4 w-4" />
-                New Folder
+            <Button variant="outline" size="sm" onClick={() => setIsOpen(true)} className={cn(isMobile ? "px-3" : "")}>
+                <FolderPlus className={cn("h-4 w-4", !isMobile && "mr-2")} />
+                {!isMobile && "New Folder"}
             </Button>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -76,30 +77,52 @@ export function CreateFolderButton({ parentId, onSuccess }: CreateFolderButtonPr
                     <DialogHeader>
                         <DialogTitle>Create New Folder</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="folderName">Folder Name</Label>
-                            <Input
-                                id="folderName"
-                                value={folderName}
-                                onChange={(e) => setFolderName(e.target.value)}
-                                placeholder="Enter folder name"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        handleCreateFolder()
-                                    }
-                                }}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleCreateFolder} disabled={isCreating}>
-                            {isCreating ? "Creating..." : "Create"}
-                        </Button>
-                    </DialogFooter>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)}>
+                            <div className="space-y-4 py-2">
+                                <FormField
+                                    control={form.control}
+                                    name="name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <Label htmlFor="name">Folder Name</Label>
+                                            <FormControl>
+                                                <Input
+                                                    {...field}
+                                                    id="name"
+                                                    placeholder="Enter folder name"
+                                                    className="h-10"
+                                                    disabled={isCreating}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter") {
+                                                            e.preventDefault()
+                                                            form.handleSubmit(onSubmit)()
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4">
+                                <Button variant="outline" onClick={() => setIsOpen(false)} type="button">
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={isCreating} className="bg-primary hover:bg-primary/90">
+                                    {isCreating ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        "Create"
+                                    )}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
                 </DialogContent>
             </Dialog>
         </>

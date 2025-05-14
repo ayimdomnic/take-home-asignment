@@ -44,3 +44,15 @@ export const fileUploadSchema = z.object({
         folderId: cuidSchema.nullable().optional(),
     }),
 });
+
+export const RenameSchema = z.object({
+    name: z.string().min(1, { message: "Name is required" }),
+  })
+  
+export const MoveSchema = z.object({
+    targetFolderId: z.string().nullable(),
+})
+
+
+export type RenameFormValues = z.infer<typeof RenameSchema>
+export type MoveFormValues = z.infer<typeof MoveSchema>
