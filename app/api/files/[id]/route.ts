@@ -17,7 +17,7 @@ export async function GET(
 ) {
   try {
     const id = (await params).id
-    // Authentication check
+  
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       throw new ApiError(
@@ -27,10 +27,10 @@ export async function GET(
       );
     }
 
-    // Validate file ID
+    
     validate('cuid', id);
 
-    // Fetch file with user verification
+    
     const file = await prisma.file.findFirst({
       where: {
         id: id,
@@ -113,17 +113,17 @@ export async function PUT(
       );
     }
 
-    // Validate file ID
+    
     validate('cuid', id);
 
-    // Parse and validate request body
+
     const body = await request.json();
     const updateData = validate('updateFile', {
       ...body,
-      id, // Ensure ID is included for validation
+      id, 
     });
 
-    // Verify file exists and belongs to user
+
     const existingFile = await prisma.file.findFirst({
       where: {
         id,
@@ -139,10 +139,10 @@ export async function PUT(
       );
     }
 
-    // Verify new folder exists and belongs to user if changing folder
+    
     if (updateData.folderId !== undefined) {
       if (updateData.folderId === null) {
-        // Allow setting to null (root folder)
+        
       } else {
         const folder = await prisma.folder.findFirst({
           where: {
@@ -161,7 +161,7 @@ export async function PUT(
       }
     }
 
-    // Update file record
+  
     const updatedFile = await prisma.file.update({
       where: { id },
       data: {
@@ -224,7 +224,7 @@ export async function DELETE(
 ) {
   try {
     const id = (await params).id
-    // Authentication check
+    
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       throw new ApiError(
@@ -234,10 +234,10 @@ export async function DELETE(
       );
     }
 
-    // Validate file ID
+   
     validate('cuid', id);
 
-    // Verify file exists and belongs to user
+   
     const file = await prisma.file.findFirst({
       where: {
         id,
@@ -253,10 +253,9 @@ export async function DELETE(
       );
     }
 
-    // Delete from blob storage first
+    
     await deleteBlob(file.url);
 
-    // Then delete the record
     await prisma.file.delete({
       where: { id },
     });
