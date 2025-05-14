@@ -5,9 +5,9 @@ import { authOptions, ApiError, prisma, API_ERRORS, deleteBlob } from '@/lib';
 import { validate } from '@/lib/validations';
 
 type RouteParams = {
-    params: {
+    params: Promise<{
         id: string;
-    }
+    }>
 }
 
 
@@ -16,6 +16,7 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
+    const id = (await params).id
     // Authentication check
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -27,12 +28,12 @@ export async function GET(
     }
 
     // Validate file ID
-    validate('cuid', params.id);
+    validate('cuid', id);
 
     // Fetch file with user verification
     const file = await prisma.file.findFirst({
       where: {
-        id: params.id,
+        id: id,
         userId: session.user.id,
       },
       include: {
@@ -101,6 +102,7 @@ export async function PUT(
   { params }: RouteParams
 ) {
   try {
+    const id = (await params).id
     // Authentication check
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -112,19 +114,19 @@ export async function PUT(
     }
 
     // Validate file ID
-    validate('cuid', params.id);
+    validate('cuid', id);
 
     // Parse and validate request body
     const body = await request.json();
     const updateData = validate('updateFile', {
       ...body,
-      id: params.id, // Ensure ID is included for validation
+      id, // Ensure ID is included for validation
     });
 
     // Verify file exists and belongs to user
     const existingFile = await prisma.file.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
@@ -161,7 +163,7 @@ export async function PUT(
 
     // Update file record
     const updatedFile = await prisma.file.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: updateData.name,
         folderId: updateData.folderId,
@@ -221,6 +223,7 @@ export async function DELETE(
   { params }: RouteParams
 ) {
   try {
+    const id = (await params).id
     // Authentication check
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -232,12 +235,12 @@ export async function DELETE(
     }
 
     // Validate file ID
-    validate('cuid', params.id);
+    validate('cuid', id);
 
     // Verify file exists and belongs to user
     const file = await prisma.file.findFirst({
       where: {
-        id: params.id,
+        id,
         userId: session.user.id,
       },
     });
@@ -255,7 +258,7 @@ export async function DELETE(
 
     // Then delete the record
     await prisma.file.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return new NextResponse(null, { status: 204 });
