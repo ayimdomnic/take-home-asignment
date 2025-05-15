@@ -1,0 +1,29 @@
+{
+    "success": true,
+    "data": {
+      "folders": [],
+      "files": [
+        {
+          "id": "file3",
+          "name": "vacation.jpg",
+          "type": "image/jpeg",
+          "size": 512000,
+          "url": "https://example.com/vacation.jpg",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "starred": false
+        },
+        {
+          "id": "file4",
+          "name": "profile.png",
+          "type": "image/png",
+          "size": 256000,
+          "url": "https://example.com/profile.png",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "starred": false
+        }
+      ]
+    }
+  }
+  

@@ -1,0 +1,50 @@
+{
+    "success": true,
+    "data": {
+      "folders": [
+        {
+          "id": "folder1",
+          "name": "Images",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "_count": {
+            "files": 5,
+            "children": 0
+          }
+        },
+        {
+          "id": "folder2",
+          "name": "Documents",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "_count": {
+            "files": 3,
+            "children": 1
+          }
+        }
+      ],
+      "files": [
+        {
+          "id": "file1",
+          "name": "Document.pdf",
+          "type": "application/pdf",
+          "size": 1024000,
+          "url": "https://example.com/document.pdf",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "starred": true
+        },
+        {
+          "id": "file2",
+          "name": "Presentation.pptx",
+          "type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "size": 2048000,
+          "url": "https://example.com/presentation.pptx",
+          "createdAt": "2023-01-01T00:00:00.000Z",
+          "updatedAt": "2023-01-01T00:00:00.000Z",
+          "starred": false
+        }
+      ]
+    }
+  }
+  
