@@ -2,7 +2,7 @@ import { defineConfig } from 'cypress';
 import configurePlugin from '@cypress/code-coverage/task';
 
 export default defineConfig({
-  projectId: 'google-drive-clone',
+  projectId: 'gdrive',
   e2e: {
     baseUrl: 'http://localhost:3000',
     viewportWidth: 1280,
