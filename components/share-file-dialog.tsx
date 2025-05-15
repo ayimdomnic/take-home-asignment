@@ -1,14 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import type React from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Loader2, X } from "lucide-react"
+import { Loader2, X, Mail, Users } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 interface ShareFileDialogProps {
   file: any
@@ -21,11 +23,22 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
   const [email, setEmail] = useState("")
   const [permission, setPermission] = useState("VIEW")
   const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [sharedUsers, setSharedUsers] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch shared users when dialog opens
+  useEffect(() => {
+    if (isOpen && file?.id) {
+      fetchSharedUsers()
+    }
+  }, [isOpen, file])
+
   const fetchSharedUsers = async () => {
     if (!file?.id) return
+
+    setIsLoading(true)
+    setError(null)
 
     try {
       const response = await fetch(`/api/files/${file.id}/shares`)
@@ -33,29 +46,35 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
         const data = await response.json()
         setSharedUsers(data.data || [])
       } else {
-        throw new Error("Failed to fetch shared users")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch shared users")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching shared users:", error)
+      setError("Failed to load sharing information. Please try again.")
+    } finally {
+      setIsLoading(false)
     }
   }
 
   // Reset state when dialog opens/closes
   const handleOpenChange = (open: boolean) => {
-    if (open && file?.id) {
-      fetchSharedUsers()
-    } else {
+    if (!open) {
       setEmail("")
       setPermission("VIEW")
+      setError(null)
       onClose()
     }
   }
 
   // Handle share
-  const handleShare = async () => {
+  const handleShare = async (e: React.FormEvent) => {
+    e.preventDefault()
+
     if (!email || !file?.id) return
 
-    setIsLoading(true)
+    setIsSubmitting(true)
+    setError(null)
 
     try {
       const response = await fetch(`/api/files/${file.id}/share`, {
@@ -75,15 +94,16 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
         fetchSharedUsers()
         onSuccess()
       } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to share file")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to share file")
       }
     } catch (error: any) {
+      setError(error.message || "Failed to share file. Please try again.")
       toast.error("Failed to share file", {
         description: error.message || "Something went wrong",
       })
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -99,8 +119,8 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
         fetchSharedUsers()
         onSuccess()
       } else {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to remove share")
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to remove share")
       }
     } catch (error: any) {
       toast.error("Failed to remove share", {
@@ -125,9 +145,9 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md dialog-content">
         <DialogHeader>
-          <DialogTitle>Share "{file.name}"</DialogTitle>
+          <DialogTitle className="flex items-center">Share "{file.name}"</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <form onSubmit={handleShare} className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="email">Share with</Label>
             <div className="flex space-x-2">
@@ -138,8 +158,9 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-1"
+                disabled={isSubmitting}
               />
-              <Select value={permission} onValueChange={setPermission}>
+              <Select value={permission} onValueChange={setPermission} disabled={isSubmitting}>
                 <SelectTrigger className="w-[120px]">
                   <SelectValue placeholder="Permission" />
                 </SelectTrigger>
@@ -149,52 +170,68 @@ export function ShareFileDialog({ file, isOpen, onClose, onSuccess }: ShareFileD
                 </SelectContent>
               </Select>
             </div>
+            {error && <p className="text-sm text-destructive mt-1">{error}</p>}
           </div>
 
-          <Button
-            onClick={handleShare}
-            disabled={!email || isLoading}
-            className="w-full bg-primary hover:bg-primary/90"
-          >
-            {isLoading ? (
+          <Button type="submit" disabled={!email || isSubmitting} className="w-full bg-primary hover:bg-primary/90">
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sharing...
               </>
             ) : (
-              "Share"
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Share
+              </>
             )}
           </Button>
+        </form>
 
-          {sharedUsers.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-sm font-medium mb-2">People with access</h3>
-              <div className="space-y-2">
-                {sharedUsers.map((share) => (
-                  <div key={share.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
-                    <div className="flex items-center">
-                      <Avatar className="h-8 w-8 mr-2">
-                        <AvatarImage src={share.user.image || ""} />
-                        <AvatarFallback>
-                          {share.user.name ? getInitials(share.user.name) : share.user.email[0].toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{share.user.name || share.user.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {share.permission === "VIEW" ? "Can view" : "Can edit"}
-                        </p>
-                      </div>
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : sharedUsers.length > 0 ? (
+          <div className="mt-6">
+            <h3 className="text-sm font-medium mb-2 flex items-center">
+              <Users className="h-4 w-4 mr-2" />
+              People with access
+            </h3>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+              {sharedUsers.map((share) => (
+                <div key={share.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                  <div className="flex items-center">
+                    <Avatar className="h-8 w-8 mr-2">
+                      <AvatarImage src={share.user.image || ""} />
+                      <AvatarFallback>
+                        {share.user.name ? getInitials(share.user.name) : share.user.email[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-sm font-medium">{share.user.name || share.user.email}</p>
+                      <Badge variant={share.permission === "EDIT" ? "default" : "secondary"} className="text-xs mt-1">
+                        {share.permission === "VIEW" ? "Can view" : "Can edit"}
+                      </Badge>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveShare(share.id)} className="h-8 w-8">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
-                ))}
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveShare(share.id)}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="mt-6 text-center py-4 text-muted-foreground">
+            <p className="text-sm">No one has access to this file yet</p>
+          </div>
+        )}
         <DialogFooter className="sm:justify-start">
           <Button variant="outline" onClick={onClose}>
             Close

@@ -35,6 +35,7 @@ import { type RenameFormValues, type MoveFormValues, RenameSchema, MoveSchema } 
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { FilePreview } from "@/components/file-preview"
 import { ShareFileDialog } from "@/components/share-file-dialog"
+import { Badge } from "@/components/ui/badge"
 
 interface FileExplorerProps {
   files: any[]
@@ -65,6 +66,7 @@ export function FileExplorer({
   const [availableFolders, setAvailableFolders] = useState<any[]>([])
   const [previewFile, setPreviewFile] = useState<any>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   const renameForm = useForm<RenameFormValues>({
     resolver: zodResolver(RenameSchema),
@@ -123,6 +125,7 @@ export function FileExplorer({
 
   // Handle rename
   async function handleRename(values: RenameFormValues) {
+    setIsLoading(true)
     try {
       const endpoint = itemType === "file" ? `/api/files/${selectedItem.id}` : `/api/folders/${selectedItem.id}`
 
@@ -146,12 +149,14 @@ export function FileExplorer({
         description: error.message || "Something went wrong",
       })
     } finally {
+      setIsLoading(false)
       setIsRenaming(false)
     }
   }
 
   // Handle delete or trash
   async function handleDelete() {
+    setIsLoading(true)
     try {
       if (viewType === "trash") {
         // Permanently delete
@@ -188,6 +193,7 @@ export function FileExplorer({
         description: error.message || "Something went wrong",
       })
     } finally {
+      setIsLoading(false)
       setIsDeleting(false)
     }
   }
@@ -265,6 +271,7 @@ export function FileExplorer({
 
   // Handle move
   async function handleMove(values: MoveFormValues) {
+    setIsLoading(true)
     try {
       const endpoint = itemType === "file" ? `/api/files/${selectedItem.id}` : `/api/folders/${selectedItem.id}`
 
@@ -291,6 +298,7 @@ export function FileExplorer({
         description: error.message || "Something went wrong",
       })
     } finally {
+      setIsLoading(false)
       setIsMoving(false)
     }
   }
@@ -527,15 +535,17 @@ export function FileExplorer({
                       </DropdownMenu>
                     </div>
 
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      {formatFileSize(fileData.size)}
+                    <div className="mt-2 text-xs text-muted-foreground flex flex-col items-center">
+                      <span>{formatFileSize(fileData.size)}</span>
                       {viewType === "shared" && file.user && (
-                        <div className="mt-1">Shared by: {file.user.name || file.user.email}</div>
+                        <Badge variant="outline" className="mt-1 text-xs">
+                          Shared by: {file.user.name || file.user.email}
+                        </Badge>
                       )}
                       {viewType === "trash" && fileData.trashedAt && (
-                        <div className="mt-1">
+                        <span className="mt-1 text-xs">
                           Trashed: {formatDistanceToNow(new Date(fileData.trashedAt), { addSuffix: true })}
-                        </div>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -877,11 +887,11 @@ export function FileExplorer({
                 />
               </div>
               <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4">
-                <Button variant="outline" onClick={() => setIsRenaming(false)} type="button">
+                <Button variant="outline" onClick={() => setIsRenaming(false)} type="button" disabled={isLoading}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">
-                  Rename
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
+                  {isLoading ? "Renaming..." : "Rename"}
                 </Button>
               </DialogFooter>
             </form>
@@ -925,11 +935,11 @@ export function FileExplorer({
                 />
               </div>
               <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4">
-                <Button variant="outline" onClick={() => setIsMoving(false)} type="button">
+                <Button variant="outline" onClick={() => setIsMoving(false)} type="button" disabled={isLoading}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-primary hover:bg-primary/90">
-                  Move
+                <Button type="submit" className="bg-primary hover:bg-primary/90" disabled={isLoading}>
+                  {isLoading ? "Moving..." : "Move"}
                 </Button>
               </DialogFooter>
             </form>
@@ -967,11 +977,17 @@ export function FileExplorer({
             </p>
           </div>
           <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
+            <Button variant="outline" onClick={() => setIsDeleting(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              {viewType === "trash" ? "Delete permanently" : "Move to trash"}
+            <Button variant="destructive" onClick={handleDelete} disabled={isLoading}>
+              {isLoading
+                ? viewType === "trash"
+                  ? "Deleting..."
+                  : "Moving to trash..."
+                : viewType === "trash"
+                  ? "Delete permanently"
+                  : "Move to trash"}
             </Button>
           </DialogFooter>
         </DialogContent>
